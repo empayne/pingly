@@ -1,0 +1,30 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "empayne",
+    "longName": "Pingly",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/blank.png",
+                "name": "IMAGE_BLANK",
+                "type": "png"
+            },
+            {
+                "file": "images/test2.png",
+                "name": "IMAGE_TEST",
+                "type": "png"
+            }
+        ]
+    },
+    "shortName": "Pingly",
+    "uuid": "4bc316c9-44c4-4e65-b67c-92afaead5f45",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
