@@ -1,5 +1,8 @@
 {
-    "appKeys": {},
+    "appKeys": {
+        "KEY_CONNECTED": 0,
+        "KEY_LATENCY": 1
+    },
     "capabilities": [
         ""
     ],

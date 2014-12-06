@@ -2,6 +2,9 @@
   
 #define TEXT_LINE_HEIGHT 30
 
+#define KEY_CONNECTED 0
+#define KEY_LATENCY 1
+
 static Window *s_main_window;
 static TextLayer *s_output_layer_upper;
 static TextLayer *s_output_layer_lower;
@@ -13,12 +16,16 @@ char* str_initial = "Press any key.";
 char* str_pinging = "Pinging...";
 char* str_empty = NULL;
 
+static char buffer_connected[8];
+static char buffer_latency[8];
+
 static void click_handler(ClickRecognizerRef recognizer, void *context) {
   Window *window = (Window *)context;
   Layer *window_layer = window_get_root_layer(window);
   GRect window_bounds = layer_get_bounds(window_layer);
   
   text_layer_set_text(s_output_layer_upper,str_pinging);
+  app_message_outbox_send();
   
   /*bitmap_layer_destroy(background_layer);
   gbitmap_destroy(background_bitmap);
@@ -31,6 +38,44 @@ static void click_handler(ClickRecognizerRef recognizer, void *context) {
   
   
 }
+
+static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "Inbox message received!");
+  
+  Tuple *t = dict_read_first(iterator);
+  
+  while(t != NULL) {
+    switch(t->key)
+    {
+      case KEY_CONNECTED:
+        APP_LOG(APP_LOG_LEVEL_INFO, "Connected: %d", (int)t->value->int32);
+        break;
+      case KEY_LATENCY:
+        APP_LOG(APP_LOG_LEVEL_INFO, "Latency: %d", (int)t->value->int32);
+        break;
+      default:
+        APP_LOG(APP_LOG_LEVEL_ERROR, "Key %d not recognized!", (int)t->key);
+        break;
+    }
+    
+    t = dict_read_next(iterator);
+  }
+  
+}
+
+static void inbox_dropped_callback(AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");
+}
+
+static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");
+}
+
+static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
+}
+
+
 
 static void click_config_provider(void *context) {
   // Register the ClickHandlers
@@ -80,6 +125,14 @@ static void main_window_unload(Window *window) {
 }
 
 static void init() {
+  // Register AppMessage callbacks and open:
+  app_message_register_inbox_received(inbox_received_callback);
+  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  
+  app_message_register_inbox_dropped(inbox_dropped_callback);
+  app_message_register_outbox_failed(outbox_failed_callback);
+  app_message_register_outbox_sent(outbox_sent_callback);
+  
   // Create main Window
   s_main_window = window_create();
   window_set_window_handlers(s_main_window, (WindowHandlers) {
