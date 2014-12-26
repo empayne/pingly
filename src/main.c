@@ -4,6 +4,8 @@
 
 #define KEY_CONNECTED 0
 #define KEY_LATENCY 1
+  
+#define PING_TIMEOUT 10000
 
 static Window *s_main_window;
 static TextLayer *s_output_layer_upper;
@@ -14,10 +16,14 @@ static GBitmap     *background_bitmap;
 
 char* str_initial = "Press any key.";
 char* str_pinging = "Pinging...";
+char* str_timeout = "(timed out)";
+char* str_connected = "Connected.";
+char* str_poor_connection = "Poor connection.";
+char* str_disconnected = "Disconnected.";
+
 char* str_empty = NULL;
 
-static char buffer_connected[8];
-static char buffer_latency[8];
+static char buffer_latency[16];
 
 static void click_handler(ClickRecognizerRef recognizer, void *context) {
   Window *window = (Window *)context;
@@ -25,6 +31,7 @@ static void click_handler(ClickRecognizerRef recognizer, void *context) {
   GRect window_bounds = layer_get_bounds(window_layer);
   
   text_layer_set_text(s_output_layer_upper,str_pinging);
+  text_layer_set_text(s_output_layer_lower,str_empty);
   app_message_outbox_send();
   
   /*bitmap_layer_destroy(background_layer);
@@ -42,6 +49,8 @@ static void click_handler(ClickRecognizerRef recognizer, void *context) {
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Inbox message received!");
   
+  int connected = -1;
+
   Tuple *t = dict_read_first(iterator);
   
   while(t != NULL) {
@@ -49,9 +58,19 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     {
       case KEY_CONNECTED:
         APP_LOG(APP_LOG_LEVEL_INFO, "Connected: %d", (int)t->value->int32);
+        connected = (int)t->value->int32;
         break;
       case KEY_LATENCY:
         APP_LOG(APP_LOG_LEVEL_INFO, "Latency: %d", (int)t->value->int32);
+      
+        memset(buffer_latency, 0, sizeof(buffer_latency));
+        if ((int)t->value->int32 > 0) {
+          snprintf(buffer_latency, sizeof(buffer_latency), "(%d ms)", (int)t->value->int32); 
+        }
+        else {
+          snprintf(buffer_latency, sizeof(buffer_latency), str_timeout); 
+        }
+        
         break;
       default:
         APP_LOG(APP_LOG_LEVEL_ERROR, "Key %d not recognized!", (int)t->key);
@@ -60,6 +79,9 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     
     t = dict_read_next(iterator);
   }
+  
+  text_layer_set_text(s_output_layer_upper, connected ? str_connected : str_disconnected);
+  text_layer_set_text(s_output_layer_lower, buffer_latency);
   
 }
 
