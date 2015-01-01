@@ -19,7 +19,7 @@ Pebble.addEventListener('appmessage',
 // Use an XHR request for an image that doesn't exist. If we get a 404 / most other error codes, we're connected.
 // We get an error code of 0 if we don't have a network / we time out.
 // To test a timeout, we can try accessing a website with a long timeout period, like: "http://google.com:81/"
-// Adapted from: http://forums.getpebble.com/discussion/15547/timeout-on-xmlhttprequest
+// Adapted from: http://forums.getpebble.com/discussio  n/15547/timeout-on-xmlhttprequest
 function ping(site, timeout, callback) {
     this.xhr = new XMLHttpRequest();
     this.file = site + "/fakeimage.png/?cachebreaker=" + new Date().getTime();

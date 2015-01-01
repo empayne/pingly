@@ -12,13 +12,43 @@
     "resources": {
         "media": [
             {
-                "file": "images/blank.png",
-                "name": "IMAGE_BLANK",
+                "file": "images/signal_weak.png",
+                "name": "IMAGE_SIGNAL_WEAK",
                 "type": "png"
             },
             {
-                "file": "images/test2.png",
-                "name": "IMAGE_TEST",
+                "file": "images/signal_strong.png",
+                "name": "IMAGE_SIGNAL_STRONG",
+                "type": "png"
+            },
+            {
+                "file": "images/signal_fail.png",
+                "name": "IMAGE_SIGNAL_FAIL",
+                "type": "png"
+            },
+            {
+                "file": "images/bluetooth_fail.png",
+                "name": "IMAGE_BLUETOOTH_FAIL",
+                "type": "png"
+            },
+            {
+                "file": "images/wifi2.png",
+                "name": "IMAGE_WIFI_2",
+                "type": "png"
+            },
+            {
+                "file": "images/wifi1.png",
+                "name": "IMAGE_WIFI_1",
+                "type": "png"
+            },
+            {
+                "file": "images/wifi0.png",
+                "name": "IMAGE_WIFI_0",
+                "type": "png"
+            },
+            {
+                "file": "images/blank.png",
+                "name": "IMAGE_BLANK",
                 "type": "png"
             }
         ]

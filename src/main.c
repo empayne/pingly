@@ -7,6 +7,7 @@
   
 #define PING_TIMEOUT 10000
 #define BLUETOOTH_TIMEOUT 15000
+#define WEAK_SIGNAL_LATENCY 500
 
 static Window *s_main_window;
 static TextLayer *s_output_layer_upper;
@@ -27,28 +28,57 @@ static char send_message_locked;
 static char buffer_latency[32]; // ex. will contain "latency: 123ms"
 
 static AppTimer* bluetooth_timeout_apptimer;
+static void* context_imageUpdate;
+
+static void updateImage (int identifier, Layer* window_layer) {
+  GRect window_bounds = layer_get_bounds(window_layer);
+  
+  bitmap_layer_destroy(background_layer);
+  gbitmap_destroy(background_bitmap);
+  
+  background_bitmap = gbitmap_create_with_resource(identifier);
+  background_layer = bitmap_layer_create(GRect(0, 0, window_bounds.size.w, window_bounds.size.h - 2*TEXT_LINE_HEIGHT));
+  bitmap_layer_set_bitmap(background_layer, background_bitmap);
+  layer_add_child(window_get_root_layer(s_main_window), bitmap_layer_get_layer(background_layer));
+}
 
 static void timer_callback(void* data) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Bluetooth timeout occurred...");
   bluetooth_timeout_apptimer = NULL;
   
+  Window *window = (Window *)context_imageUpdate;
+  Layer *window_layer = window_get_root_layer(window);
+  
   text_layer_set_text(s_output_layer_upper, str_bluetooth_timeout);
   text_layer_set_text(s_output_layer_lower, str_check_phone);
+  updateImage(RESOURCE_ID_IMAGE_BLUETOOTH_FAIL, window_layer);
   
   send_message_locked = 0;
 }
 
+
+
 static void click_handler(ClickRecognizerRef recognizer, void *context) {
-  Window *window = (Window *)context;
-  Layer *window_layer = window_get_root_layer(window);
-  GRect window_bounds = layer_get_bounds(window_layer);
+  
   
   if (!send_message_locked) {
+    
+    if (context_imageUpdate == NULL) {
+      // Initialize this so that we can use it in timer, app callbacks.
+      context_imageUpdate = context;
+    }
+
+    Window *window = (Window *)context_imageUpdate;
+    Layer *window_layer = window_get_root_layer(window);
+    
     send_message_locked = 1;
     bluetooth_timeout_apptimer = app_timer_register(BLUETOOTH_TIMEOUT, timer_callback, NULL);
     
     text_layer_set_text(s_output_layer_upper,str_pinging);
     text_layer_set_text(s_output_layer_lower,str_empty);
+    
+    updateImage(RESOURCE_ID_IMAGE_BLANK, window_layer);
+    
     app_message_outbox_send();    
   }
   else {
@@ -65,6 +95,9 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   
   int connected = -1;
   int latency = -1;
+  
+  Window *window = (Window *)context_imageUpdate;
+  Layer *window_layer = window_get_root_layer(window);
 
   Tuple *t = dict_read_first(iterator);
   
@@ -92,14 +125,17 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   if (connected) {
     // Connected, show latency:
     snprintf(buffer_latency, sizeof(buffer_latency), "latency: %dms", latency); 
+    updateImage(latency > WEAK_SIGNAL_LATENCY ? RESOURCE_ID_IMAGE_SIGNAL_WEAK : RESOURCE_ID_IMAGE_SIGNAL_STRONG, window_layer);
   }
   else if (!connected && latency < PING_TIMEOUT) {
     // Disconnected, but not from timeout (ex. in airplane mode)
-    snprintf(buffer_latency, sizeof(buffer_latency), "failed: %dms", latency); 
+    snprintf(buffer_latency, sizeof(buffer_latency), "failed: %dms", latency);
+    updateImage(RESOURCE_ID_IMAGE_SIGNAL_FAIL, window_layer);
   }
   else {
     // Disconnected (in the sense that latency > timeout)
-    snprintf(buffer_latency, sizeof(buffer_latency), "timeout: %ds", (int) PING_TIMEOUT / 1000); 
+    snprintf(buffer_latency, sizeof(buffer_latency), "timeout: %ds", (int) PING_TIMEOUT / 1000);
+    updateImage(RESOURCE_ID_IMAGE_SIGNAL_FAIL, window_layer);
   }
   
   text_layer_set_text(s_output_layer_upper, connected ? str_connected : str_disconnected);
@@ -171,7 +207,8 @@ static void init() {
   // Initialize the lock for sending messages:
   send_message_locked = 0;
   bluetooth_timeout_apptimer = NULL;
-  
+  context_imageUpdate = NULL;
+    
   // Register AppMessage callbacks and open:
   app_message_register_inbox_received(inbox_received_callback);
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
