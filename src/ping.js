@@ -12,7 +12,7 @@ Pebble.addEventListener('ready',
 Pebble.addEventListener('appmessage',
   function(e) {
     console.log("AppMessage received!");
-    ping(SITE_TO_PING);
+    ping(SITE_TO_PING, TIMEOUT, send_latency_data);
   }                     
 );
 
@@ -20,7 +20,7 @@ Pebble.addEventListener('appmessage',
 // We get an error code of 0 if we don't have a network / we time out.
 // To test a timeout, we can try accessing a website with a long timeout period, like: "http://google.com:81/"
 // Adapted from: http://forums.getpebble.com/discussion/15547/timeout-on-xmlhttprequest
-function ping(site, timeout) {
+function ping(site, timeout, callback) {
     this.xhr = new XMLHttpRequest();
     this.file = site + "/fakeimage.png/?cachebreaker=" + new Date().getTime();
   
@@ -36,7 +36,7 @@ function ping(site, timeout) {
         {
           this.latency = (new Date().getTime()) - start;
           console.log("Received XHR response (status " + xhr.status + ") after " + this.latency + " ms.");
-          send_latency_data(this.latency, xhr.status != 0);
+          callback(this.latency, xhr.status != 0);
         }
     };
   
