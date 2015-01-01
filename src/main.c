@@ -4,10 +4,14 @@
 
 #define KEY_CONNECTED 0
 #define KEY_LATENCY 1
-  
+
 #define PING_TIMEOUT 10000
 #define BLUETOOTH_TIMEOUT 15000
 #define WEAK_SIGNAL_LATENCY 500
+  
+#define WIFI_ANIMATION_START_DELAY 300
+#define WIFI_ANIMATION_SPEED 300
+#define WIFI_ANIMATION_END_DELAY 300
 
 static Window *s_main_window;
 static TextLayer *s_output_layer_upper;
@@ -28,7 +32,9 @@ static char send_message_locked;
 static char buffer_latency[32]; // ex. will contain "latency: 123ms"
 
 static AppTimer* bluetooth_timeout_apptimer;
+static AppTimer* wifi_animation_apptimer;
 static void* context_imageUpdate;
+static int current_wifi_state;
 
 static void updateImage (int identifier, Layer* window_layer) {
   GRect window_bounds = layer_get_bounds(window_layer);
@@ -42,7 +48,7 @@ static void updateImage (int identifier, Layer* window_layer) {
   layer_add_child(window_get_root_layer(s_main_window), bitmap_layer_get_layer(background_layer));
 }
 
-static void timer_callback(void* data) {
+static void bluetooth_timeout_callback(void* data) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Bluetooth timeout occurred...");
   bluetooth_timeout_apptimer = NULL;
   
@@ -54,6 +60,36 @@ static void timer_callback(void* data) {
   updateImage(RESOURCE_ID_IMAGE_BLUETOOTH_FAIL, window_layer);
   
   send_message_locked = 0;
+}
+
+static void wifi_animation_callback (void* data) {
+  Window *window = (Window *)context_imageUpdate;
+  Layer *window_layer = window_get_root_layer(window);
+  int currentImage = (int) data;
+  int nextImage = -1;
+  int delay = -1;
+  
+  switch(currentImage) {
+    case RESOURCE_ID_IMAGE_WIFI_0:
+      nextImage = RESOURCE_ID_IMAGE_WIFI_1;
+      delay = WIFI_ANIMATION_SPEED;
+      break;
+    case RESOURCE_ID_IMAGE_WIFI_1:
+      nextImage = RESOURCE_ID_IMAGE_WIFI_2;
+      delay = WIFI_ANIMATION_SPEED + WIFI_ANIMATION_END_DELAY;
+      break;
+    case RESOURCE_ID_IMAGE_WIFI_2:
+      nextImage = RESOURCE_ID_IMAGE_BLANK;
+      delay = WIFI_ANIMATION_SPEED;
+      break;
+    case RESOURCE_ID_IMAGE_BLANK:
+      nextImage = RESOURCE_ID_IMAGE_WIFI_0;
+      delay = WIFI_ANIMATION_SPEED;
+      break;
+  }
+  
+  updateImage(nextImage, window_layer);
+  wifi_animation_apptimer = app_timer_register(delay, wifi_animation_callback, (void*) nextImage);
 }
 
 
@@ -72,12 +108,13 @@ static void click_handler(ClickRecognizerRef recognizer, void *context) {
     Layer *window_layer = window_get_root_layer(window);
     
     send_message_locked = 1;
-    bluetooth_timeout_apptimer = app_timer_register(BLUETOOTH_TIMEOUT, timer_callback, NULL);
+    bluetooth_timeout_apptimer = app_timer_register(BLUETOOTH_TIMEOUT, bluetooth_timeout_callback, NULL);
     
     text_layer_set_text(s_output_layer_upper,str_pinging);
     text_layer_set_text(s_output_layer_lower,str_empty);
     
-    updateImage(RESOURCE_ID_IMAGE_BLANK, window_layer);
+    updateImage(RESOURCE_ID_IMAGE_WIFI_0, window_layer);
+    wifi_animation_apptimer = app_timer_register(WIFI_ANIMATION_START_DELAY, wifi_animation_callback, (void*) RESOURCE_ID_IMAGE_WIFI_0);
     
     app_message_outbox_send();    
   }
@@ -91,6 +128,10 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
 
   app_timer_cancel(bluetooth_timeout_apptimer);
   bluetooth_timeout_apptimer = NULL;
+  app_timer_cancel(wifi_animation_apptimer);
+  wifi_animation_apptimer = NULL;
+  
+  
   send_message_locked = 0;
   
   int connected = -1;
@@ -207,6 +248,7 @@ static void init() {
   // Initialize the lock for sending messages:
   send_message_locked = 0;
   bluetooth_timeout_apptimer = NULL;
+  wifi_animation_apptimer = NULL;
   context_imageUpdate = NULL;
     
   // Register AppMessage callbacks and open:
