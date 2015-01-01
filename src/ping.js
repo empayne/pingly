@@ -16,42 +16,38 @@ Pebble.addEventListener('appmessage',
   }                     
 );
 
-// Use an image request to test if we can connect to the server.
-// This doesn't really work, see commit history for explanation.
-// Adapted from: http://stackoverflow.com/questions/4282151/is-it-possible-to-ping-a-server-from-javascript
-function ping(SITE_TO_PING) {
-    console.log("in pinger ping");
-    var pinger = this;
-    this.latency = -1;
+// Use an XHR request for an image that doesn't exist. If we get a 404 / most other error codes, we're connected.
+// We get an error code of 0 if we don't have a network / we time out.
+// To test a timeout, we can try accessing a website with a long timeout period, like: "http://google.com:81/"
+// Adapted from: http://forums.getpebble.com/discussion/15547/timeout-on-xmlhttprequest
+function ping(site, timeout) {
+    this.xhr = new XMLHttpRequest();
+    this.file = site + "/fakeimage.png/?cachebreaker=" + new Date().getTime();
   
-    this.img = new Image();
-  
-    // TODO: don't send latency data if we've already timed out.
-    this.img.onload = function() {
-      console.log("Successful ping: in onload.");
-      pinger.latency = (new Date().getTime()) - pinger.start;
-      send_latency_data(pinger.latency, true);
+    console.log("Setting up XHR...");
+    xhr.timeout = timeout;
+    xhr.ontimeout = function () {
+      // If we time out, onreadystatechanged is also called with status 0 (which then sends message to Pebble).
+      console.log("XHR timed out."); 
     };
   
-    this.img.onerror = function() {
-      console.log("Successful ping: in onerror.");
-      pinger.latency = (new Date().getTime()) - pinger.start;
-      send_latency_data(pinger.latency, true);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState == 4) // Response is ready:
+        {
+          this.latency = (new Date().getTime()) - start;
+          console.log("Received XHR response (status " + xhr.status + ") after " + this.latency + " ms.");
+          send_latency_data(this.latency, xhr.status != 0);
+        }
     };
-
+  
+    console.log("Open XHR...");
+    xhr.open('HEAD', file, true);
+   
+    console.log("Send XHR...");
     this.start = new Date().getTime();
-    this.img.src = SITE_TO_PING + "/?cachebreaker=" + new Date().getTime();
-    
-    this.timer = setTimeout(function() {
-      console.log("Entering timeout...");
-      if (this.latency == -1) {
-        console.log("Unsuccessful ping: timed out after " + TIMEOUT + " ms.");
-        send_latency_data(pinger.latency, false);
-      }
-      else {
-        console.log("Ping was successful prior to the timeout.");
-      }
-    }, TIMEOUT);
+    xhr.send();
+  
+    console.log("XHR sent.");
 }
 
 // Send data from the ping function to the Pebble.

@@ -1,5 +1,5 @@
 #include <pebble.h>
-  
+
 #define TEXT_LINE_HEIGHT 30
 
 #define KEY_CONNECTED 0
@@ -16,14 +16,11 @@ static GBitmap     *background_bitmap;
 
 char* str_initial = "Press any key.";
 char* str_pinging = "Pinging...";
-char* str_timeout = "(timed out)";
 char* str_connected = "Connected.";
-char* str_poor_connection = "Poor connection.";
 char* str_disconnected = "Disconnected.";
-
 char* str_empty = NULL;
 
-static char buffer_latency[16];
+static char buffer_latency[32]; // ex. will contain "latency: 123ms"
 
 static void click_handler(ClickRecognizerRef recognizer, void *context) {
   Window *window = (Window *)context;
@@ -33,23 +30,13 @@ static void click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(s_output_layer_upper,str_pinging);
   text_layer_set_text(s_output_layer_lower,str_empty);
   app_message_outbox_send();
-  
-  /*bitmap_layer_destroy(background_layer);
-  gbitmap_destroy(background_bitmap);
-  
-  background_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_TEST);
-  background_layer = bitmap_layer_create(GRect(0, 0, window_bounds.size.w, window_bounds.size.h - 2*TEXT_LINE_HEIGHT));
-  bitmap_layer_set_bitmap(background_layer, background_bitmap);
-  layer_add_child(window_get_root_layer(s_main_window), bitmap_layer_get_layer(background_layer));*/
-  
-  
-  
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Inbox message received!");
   
   int connected = -1;
+  int latency = -1;
 
   Tuple *t = dict_read_first(iterator);
   
@@ -62,15 +49,7 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         break;
       case KEY_LATENCY:
         APP_LOG(APP_LOG_LEVEL_INFO, "Latency: %d", (int)t->value->int32);
-      
-        memset(buffer_latency, 0, sizeof(buffer_latency));
-        if ((int)t->value->int32 > 0) {
-          snprintf(buffer_latency, sizeof(buffer_latency), "(%d ms)", (int)t->value->int32); 
-        }
-        else {
-          snprintf(buffer_latency, sizeof(buffer_latency), str_timeout); 
-        }
-        
+        latency = (int)t->value->int32;
         break;
       default:
         APP_LOG(APP_LOG_LEVEL_ERROR, "Key %d not recognized!", (int)t->key);
@@ -80,9 +59,23 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     t = dict_read_next(iterator);
   }
   
+  memset(buffer_latency, 0, sizeof(buffer_latency));
+  
+  if (connected) {
+    // Connected, show latency:
+    snprintf(buffer_latency, sizeof(buffer_latency), "latency: %dms", latency); 
+  }
+  else if (!connected && latency < PING_TIMEOUT) {
+    // Disconnected, but not from timeout (ex. in airplane mode)
+    snprintf(buffer_latency, sizeof(buffer_latency), "failed: %dms", latency); 
+  }
+  else {
+    // Disconnected (in the sense that latency > timeout)
+    snprintf(buffer_latency, sizeof(buffer_latency), "timeout: %ds", (int) PING_TIMEOUT / 1000); 
+  }
+  
   text_layer_set_text(s_output_layer_upper, connected ? str_connected : str_disconnected);
   text_layer_set_text(s_output_layer_lower, buffer_latency);
-  
 }
 
 static void inbox_dropped_callback(AppMessageResult reason, void *context) {
@@ -97,10 +90,8 @@ static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
 }
 
-
-
 static void click_config_provider(void *context) {
-  // Register the ClickHandlers
+  // Register the ClickHandlers:
   window_single_click_subscribe(BUTTON_ID_UP, click_handler);
   window_single_click_subscribe(BUTTON_ID_SELECT, click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN, click_handler);
@@ -110,13 +101,14 @@ static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect window_bounds = layer_get_bounds(window_layer);
   
-    // Create image layer. Will contain a PNG image indicating signal strength.
+  // Create image layer. Will contain a PNG image indicating signal strength.
   background_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BLANK);
   background_layer = bitmap_layer_create(GRect(0, 0, window_bounds.size.w, window_bounds.size.h - 2*TEXT_LINE_HEIGHT));
   bitmap_layer_set_bitmap(background_layer, background_bitmap);
   layer_add_child(window_get_root_layer(s_main_window), bitmap_layer_get_layer(background_layer));
 
   // Create output TextLayer (upper)
+  // ex. will contain "Press any key", "Pinging", "Connected", "Disconnected"
   s_output_layer_upper = text_layer_create(GRect(0, window_bounds.size.h - 2*TEXT_LINE_HEIGHT, window_bounds.size.w , window_bounds.size.h - TEXT_LINE_HEIGHT));
   text_layer_set_font(s_output_layer_upper, fonts_get_system_font(FONT_KEY_GOTHIC_24));
   text_layer_set_background_color(s_output_layer_upper, GColorBlack);
@@ -127,6 +119,7 @@ static void main_window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(s_output_layer_upper));
   
    // Create output TextLayer (lower)
+  // ex. will contain "latency: 123ms", "failed: 10ms", "timeout: 10s"
   s_output_layer_lower = text_layer_create(GRect(0, window_bounds.size.h - TEXT_LINE_HEIGHT, window_bounds.size.w , window_bounds.size.h));
   text_layer_set_font(s_output_layer_lower, fonts_get_system_font(FONT_KEY_GOTHIC_24));
   text_layer_set_background_color(s_output_layer_lower, GColorBlack);
