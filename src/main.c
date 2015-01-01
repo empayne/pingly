@@ -6,6 +6,7 @@
 #define KEY_LATENCY 1
   
 #define PING_TIMEOUT 10000
+#define BLUETOOTH_TIMEOUT 15000
 
 static Window *s_main_window;
 static TextLayer *s_output_layer_upper;
@@ -18,22 +19,49 @@ char* str_initial = "Press any key.";
 char* str_pinging = "Pinging...";
 char* str_connected = "Connected.";
 char* str_disconnected = "Disconnected.";
+char* str_bluetooth_timeout = "Bluetooth timeout.";
+char* str_check_phone = "Check connection.";
 char* str_empty = NULL;
 
+static char send_message_locked;
 static char buffer_latency[32]; // ex. will contain "latency: 123ms"
+
+static AppTimer* bluetooth_timeout_apptimer;
+
+static void timer_callback(void* data) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "Bluetooth timeout occurred...");
+  bluetooth_timeout_apptimer = NULL;
+  
+  text_layer_set_text(s_output_layer_upper, str_bluetooth_timeout);
+  text_layer_set_text(s_output_layer_lower, str_check_phone);
+  
+  send_message_locked = 0;
+}
 
 static void click_handler(ClickRecognizerRef recognizer, void *context) {
   Window *window = (Window *)context;
   Layer *window_layer = window_get_root_layer(window);
   GRect window_bounds = layer_get_bounds(window_layer);
   
-  text_layer_set_text(s_output_layer_upper,str_pinging);
-  text_layer_set_text(s_output_layer_lower,str_empty);
-  app_message_outbox_send();
+  if (!send_message_locked) {
+    send_message_locked = 1;
+    bluetooth_timeout_apptimer = app_timer_register(BLUETOOTH_TIMEOUT, timer_callback, NULL);
+    
+    text_layer_set_text(s_output_layer_upper,str_pinging);
+    text_layer_set_text(s_output_layer_lower,str_empty);
+    app_message_outbox_send();    
+  }
+  else {
+    APP_LOG(APP_LOG_LEVEL_INFO, "Dropped keypress.");
+  }
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Inbox message received!");
+
+  app_timer_cancel(bluetooth_timeout_apptimer);
+  bluetooth_timeout_apptimer = NULL;
+  send_message_locked = 0;
   
   int connected = -1;
   int latency = -1;
@@ -140,6 +168,10 @@ static void main_window_unload(Window *window) {
 }
 
 static void init() {
+  // Initialize the lock for sending messages:
+  send_message_locked = 0;
+  bluetooth_timeout_apptimer = NULL;
+  
   // Register AppMessage callbacks and open:
   app_message_register_inbox_received(inbox_received_callback);
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
