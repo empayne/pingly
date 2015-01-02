@@ -12,6 +12,17 @@
     "resources": {
         "media": [
             {
+                "file": "images/icon.png",
+                "menuIcon": true,
+                "name": "IMAGE_ICON",
+                "type": "png"
+            },
+            {
+                "file": "images/logolower.png",
+                "name": "IMAGE_PINGLY",
+                "type": "png"
+            },
+            {
                 "file": "images/signal_weak.png",
                 "name": "IMAGE_SIGNAL_WEAK",
                 "type": "png"

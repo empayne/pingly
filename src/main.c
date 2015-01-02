@@ -52,6 +52,9 @@ static void bluetooth_timeout_callback(void* data) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Bluetooth timeout occurred...");
   bluetooth_timeout_apptimer = NULL;
   
+  app_timer_cancel(wifi_animation_apptimer);
+  wifi_animation_apptimer = NULL;
+  
   Window *window = (Window *)context_imageUpdate;
   Layer *window_layer = window_get_root_layer(window);
   
@@ -207,7 +210,7 @@ static void main_window_load(Window *window) {
   GRect window_bounds = layer_get_bounds(window_layer);
   
   // Create image layer. Will contain a PNG image indicating signal strength.
-  background_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BLANK);
+  background_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_PINGLY);
   background_layer = bitmap_layer_create(GRect(0, 0, window_bounds.size.w, window_bounds.size.h - 2*TEXT_LINE_HEIGHT));
   bitmap_layer_set_bitmap(background_layer, background_bitmap);
   layer_add_child(window_get_root_layer(s_main_window), bitmap_layer_get_layer(background_layer));
