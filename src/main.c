@@ -62,6 +62,8 @@ static void bluetooth_timeout_callback(void* data) {
   text_layer_set_text(s_output_layer_lower, str_check_phone);
   updateImage(RESOURCE_ID_IMAGE_BLUETOOTH_FAIL, window_layer);
   
+  vibes_long_pulse();
+  
   send_message_locked = 0;
 }
 
@@ -116,8 +118,8 @@ static void click_handler(ClickRecognizerRef recognizer, void *context) {
     text_layer_set_text(s_output_layer_upper,str_pinging);
     text_layer_set_text(s_output_layer_lower,str_empty);
     
-    updateImage(RESOURCE_ID_IMAGE_WIFI_0, window_layer);
-    wifi_animation_apptimer = app_timer_register(WIFI_ANIMATION_START_DELAY, wifi_animation_callback, (void*) RESOURCE_ID_IMAGE_WIFI_0);
+    updateImage(RESOURCE_ID_IMAGE_BLANK, window_layer);
+    wifi_animation_apptimer = app_timer_register(WIFI_ANIMATION_START_DELAY, wifi_animation_callback, (void*) RESOURCE_ID_IMAGE_BLANK);
     
     app_message_outbox_send();    
   }
@@ -170,16 +172,19 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     // Connected, show latency:
     snprintf(buffer_latency, sizeof(buffer_latency), "latency: %dms", latency); 
     updateImage(latency > WEAK_SIGNAL_LATENCY ? RESOURCE_ID_IMAGE_SIGNAL_WEAK : RESOURCE_ID_IMAGE_SIGNAL_STRONG, window_layer);
+    vibes_double_pulse();
   }
   else if (!connected && latency < PING_TIMEOUT) {
     // Disconnected, but not from timeout (ex. in airplane mode)
     snprintf(buffer_latency, sizeof(buffer_latency), "failed: %dms", latency);
     updateImage(RESOURCE_ID_IMAGE_SIGNAL_FAIL, window_layer);
+    vibes_long_pulse();
   }
   else {
     // Disconnected (in the sense that latency > timeout)
     snprintf(buffer_latency, sizeof(buffer_latency), "timeout: %ds", (int) PING_TIMEOUT / 1000);
     updateImage(RESOURCE_ID_IMAGE_SIGNAL_FAIL, window_layer);
+    vibes_long_pulse();
   }
   
   text_layer_set_text(s_output_layer_upper, connected ? str_connected : str_disconnected);
