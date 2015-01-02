@@ -13,6 +13,8 @@
 #define WIFI_ANIMATION_SPEED 300
 #define WIFI_ANIMATION_END_DELAY 300
 
+#define BACKLIGHT_OFF_DELAY 3000
+
 static Window *s_main_window;
 static TextLayer *s_output_layer_upper;
 static TextLayer *s_output_layer_lower;
@@ -48,6 +50,10 @@ static void updateImage (int identifier, Layer* window_layer) {
   layer_add_child(window_get_root_layer(s_main_window), bitmap_layer_get_layer(background_layer));
 }
 
+static void backlight_off_callback(void* data) {
+  light_enable(false);
+}
+
 static void bluetooth_timeout_callback(void* data) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Bluetooth timeout occurred...");
   bluetooth_timeout_apptimer = NULL;
@@ -63,6 +69,9 @@ static void bluetooth_timeout_callback(void* data) {
   updateImage(RESOURCE_ID_IMAGE_BLUETOOTH_FAIL, window_layer);
   
   vibes_long_pulse();
+  
+  light_enable(true);
+  app_timer_register(BACKLIGHT_OFF_DELAY, backlight_off_callback, NULL);
   
   send_message_locked = 0;
 }
@@ -186,6 +195,9 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     updateImage(RESOURCE_ID_IMAGE_SIGNAL_FAIL, window_layer);
     vibes_long_pulse();
   }
+  
+  light_enable(true);
+  app_timer_register(BACKLIGHT_OFF_DELAY, backlight_off_callback, NULL);
   
   text_layer_set_text(s_output_layer_upper, connected ? str_connected : str_disconnected);
   text_layer_set_text(s_output_layer_lower, buffer_latency);
