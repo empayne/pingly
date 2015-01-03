@@ -3,7 +3,7 @@ pingly
 
 Instantly check if you're connected to the Internet from your Pebble!  
 Pingly pings Google and tells you if you're connected to or disconnected from the Internet.  
-It provides latency data to tell if you have a strong or weak connection.  
+It provides latency data to tell you if you have a strong or weak connection.  
 
 Coming soon to the Pebble app store!
 
