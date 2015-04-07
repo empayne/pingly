@@ -36,7 +36,6 @@ static char buffer_latency[32]; // ex. will contain "latency: 123ms"
 static AppTimer* bluetooth_timeout_apptimer;
 static AppTimer* wifi_animation_apptimer;
 static void* context_imageUpdate;
-static int current_wifi_state;
 
 static void updateImage (int identifier, Layer* window_layer) {
   GRect window_bounds = layer_get_bounds(window_layer);
@@ -138,6 +137,12 @@ static void click_handler(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
+  int connected;
+  int latency;
+  Window* window;
+  Layer* window_layer;
+  Tuple* t;
+  
   APP_LOG(APP_LOG_LEVEL_INFO, "Inbox message received!");
 
   app_timer_cancel(bluetooth_timeout_apptimer);
@@ -148,13 +153,13 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   
   send_message_locked = 0;
   
-  int connected = -1;
-  int latency = -1;
+  connected = -1;
+  latency = -1;
   
-  Window *window = (Window *)context_imageUpdate;
-  Layer *window_layer = window_get_root_layer(window);
+  window = (Window *)context_imageUpdate;
+  window_layer = window_get_root_layer(window);
 
-  Tuple *t = dict_read_first(iterator);
+  t = dict_read_first(iterator);
   
   while(t != NULL) {
     switch(t->key)
